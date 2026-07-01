@@ -9,5 +9,7 @@ func main() {
 		Handler: serveMux,
 	}
 
+	serveMux.Handle("/", http.FileServer(http.Dir(".")))
+
 	server.ListenAndServe()
 }
