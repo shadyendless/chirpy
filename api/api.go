@@ -3,7 +3,9 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/shadyendless/chirpy/utils"
 )
@@ -22,6 +24,7 @@ func ValidateChirpHandler(res http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	params := parameters{}
 	if err := decoder.Decode(&params); err != nil {
+		log.Println(err)
 		utils.RespondWithError(res, errors.New("Something went wrong"), 500)
 		return
 	}
@@ -31,13 +34,16 @@ func ValidateChirpHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	profanityRegex := regexp.MustCompile("(?i)kerfuffle|sharbert|fornax")
+
 	val := struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}{
-		Valid: true,
+		CleanedBody: profanityRegex.ReplaceAllString(params.Body, "****"),
 	}
 	jsonVal, err := json.Marshal(val)
 	if err != nil {
+		log.Println(err)
 		utils.RespondWithError(res, errors.New("Something went wrong"), 500)
 	}
 
