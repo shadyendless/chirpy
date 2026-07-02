@@ -20,13 +20,13 @@ func main() {
 	cfg := apiConfig{}
 
 	serveMux.Handle("/app/", http.StripPrefix("/app", cfg.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
-	serveMux.HandleFunc("/healthz", func(res http.ResponseWriter, req *http.Request) {
+	serveMux.HandleFunc("GET /healthz", func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Add("Content-Type", "text/plain; charset=utf-8")
 		res.WriteHeader(200)
 		res.Write([]byte("OK"))
 	})
-	serveMux.HandleFunc("/metrics", cfg.metricsHandler)
-	serveMux.HandleFunc("/reset", cfg.resetHandler)
+	serveMux.HandleFunc("GET /metrics", cfg.metricsHandler)
+	serveMux.HandleFunc("POST /reset", cfg.resetHandler)
 
 	server.ListenAndServe()
 }
