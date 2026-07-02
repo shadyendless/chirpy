@@ -10,6 +10,7 @@ func main() {
 	}
 
 	serveMux.Handle("/", http.FileServer(http.Dir(".")))
+	serveMux.Handle("/assets", http.FileServer(http.Dir("./assets")))
 
 	server.ListenAndServe()
 }
