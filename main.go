@@ -9,8 +9,12 @@ func main() {
 		Handler: serveMux,
 	}
 
-	serveMux.Handle("/", http.FileServer(http.Dir(".")))
-	serveMux.Handle("/assets", http.FileServer(http.Dir("./assets")))
+	serveMux.Handle("/app/", http.StripPrefix("/app", http.FileServer(http.Dir("."))))
+	serveMux.HandleFunc("/healthz", func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Add("Content-Type", "text/plain; charset=utf-8")
+		res.WriteHeader(200)
+		res.Write([]byte("OK"))
+	})
 
 	server.ListenAndServe()
 }
