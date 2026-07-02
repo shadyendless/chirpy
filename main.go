@@ -26,16 +26,21 @@ func main() {
 		res.WriteHeader(200)
 		res.Write([]byte("OK"))
 	})
-	serveMux.HandleFunc("GET /api/metrics", cfg.metricsHandler)
-	serveMux.HandleFunc("POST /api/reset", cfg.resetHandler)
+	serveMux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
+	serveMux.HandleFunc("POST /admin/reset", cfg.resetHandler)
 
 	server.ListenAndServe()
 }
 
 func (cfg *apiConfig) metricsHandler(res http.ResponseWriter, _ *http.Request) {
-	res.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	res.Header().Add("Content-Type", "text/html")
 	res.WriteHeader(200)
-	res.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())))
+	res.Write([]byte(fmt.Sprintf(`<html>
+	<body>
+		<h1>Welcome, Chirpy Admin</h1>
+		<p>Chirpy has been visited %d times!</p>
+	</body>
+</html>`, cfg.fileserverHits.Load())))
 }
 
 func (cfg *apiConfig) resetHandler(res http.ResponseWriter, _ *http.Request) {
