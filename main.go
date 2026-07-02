@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"sync/atomic"
+
+	"github.com/shadyendless/chirpy/api"
 )
 
 type apiConfig struct {
@@ -21,13 +23,10 @@ func main() {
 
 	serveMux.Handle("/app/", http.StripPrefix("/app", cfg.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 
-	serveMux.HandleFunc("GET /api/healthz", func(res http.ResponseWriter, req *http.Request) {
-		res.Header().Add("Content-Type", "text/plain; charset=utf-8")
-		res.WriteHeader(200)
-		res.Write([]byte("OK"))
-	})
+	serveMux.HandleFunc("GET /api/healthz", api.HealthHandler)
 	serveMux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	serveMux.HandleFunc("POST /admin/reset", cfg.resetHandler)
+	serveMux.HandleFunc("POST /api/validate_chirp", api.ValidateChirpHandler)
 
 	server.ListenAndServe()
 }
