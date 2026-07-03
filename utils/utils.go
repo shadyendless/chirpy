@@ -17,6 +17,11 @@ func RespondWithServerError(res http.ResponseWriter, err error) {
 }
 
 func RespondWithErrorStatus(res http.ResponseWriter, err error, statusCode int) {
+	if err == nil {
+		res.WriteHeader(statusCode)
+		return
+	}
+
 	type returnVal struct {
 		Error string `json:"error"`
 	}

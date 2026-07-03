@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -134,6 +135,37 @@ func GetChirpsHandler(cfg *config.Config) func(http.ResponseWriter, *http.Reques
 		}
 
 		body, err := json.Marshal(chirps)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusOK)
+		res.Write(body)
+	}
+}
+
+func GetChirp(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		chirpID, err := uuid.Parse(req.PathValue("chirpID"))
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		chirp, err := cfg.DbQueries.GetChirp(req.Context(), chirpID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				utils.RespondWithErrorStatus(res, nil, 404)
+			} else {
+				utils.RespondWithServerError(res, err)
+			}
+
+			return
+		}
+
+		body, err := json.Marshal(chirp)
 		if err != nil {
 			utils.RespondWithServerError(res, err)
 			return
