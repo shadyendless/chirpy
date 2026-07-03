@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/google/uuid"
 	"github.com/shadyendless/chirpy/config"
+	"github.com/shadyendless/chirpy/internal/database"
 	"github.com/shadyendless/chirpy/utils"
 )
 
@@ -71,6 +73,47 @@ func CreateUserHandler(cfg *config.Config) func(http.ResponseWriter, *http.Reque
 		}
 
 		resJson, err := json.Marshal(user)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusCreated)
+		res.Write(resJson)
+	}
+}
+
+func CreateChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		type reqBody struct {
+			Body   string    `json:"body"`
+			UserID uuid.UUID `json:"user_id"`
+		}
+
+		decoder := json.NewDecoder(req.Body)
+		payload := reqBody{}
+
+		if err := decoder.Decode(&payload); err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		if len(payload.Body) > 140 {
+			utils.RespondWithErrorStatus(res, errors.New("Chirp is too long"), http.StatusBadRequest)
+			return
+		}
+
+		chirp, err := cfg.DbQueries.CreateChirp(req.Context(), database.CreateChirpParams{
+			Body:   payload.Body,
+			UserID: payload.UserID,
+		})
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		resJson, err := json.Marshal(chirp)
 		if err != nil {
 			utils.RespondWithServerError(res, err)
 			return
