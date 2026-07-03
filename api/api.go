@@ -124,3 +124,23 @@ func CreateChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Requ
 		res.Write(resJson)
 	}
 }
+
+func GetChirpsHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		chirps, err := cfg.DbQueries.GetChirps(req.Context())
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		body, err := json.Marshal(chirps)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusOK)
+		res.Write(body)
+	}
+}
