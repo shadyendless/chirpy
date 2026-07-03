@@ -2,17 +2,23 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 )
 
-func RespondWithError(res http.ResponseWriter, err error, statusCode int) {
+func RespondWithError(res http.ResponseWriter, err error) {
+	RespondWithErrorStatus(res, err, http.StatusInternalServerError)
+}
+
+func RespondWithServerError(res http.ResponseWriter, err error) {
+	log.Println(err)
+	RespondWithErrorStatus(res, errors.New("Something went wrong"), http.StatusInternalServerError)
+}
+
+func RespondWithErrorStatus(res http.ResponseWriter, err error, statusCode int) {
 	type returnVal struct {
 		Error string `json:"error"`
-	}
-
-	if statusCode == 0 {
-		statusCode = 200
 	}
 
 	val := returnVal{
@@ -22,7 +28,7 @@ func RespondWithError(res http.ResponseWriter, err error, statusCode int) {
 	data, err := json.Marshal(val)
 	if err != nil {
 		log.Printf("Error marshalling JSON: %s", err)
-		res.WriteHeader(500)
+		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 

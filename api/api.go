@@ -3,16 +3,16 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"regexp"
 
+	"github.com/shadyendless/chirpy/config"
 	"github.com/shadyendless/chirpy/utils"
 )
 
 func HealthHandler(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	res.WriteHeader(200)
+	res.WriteHeader(http.StatusOK)
 	res.Write([]byte("OK"))
 }
 
@@ -24,13 +24,12 @@ func ValidateChirpHandler(res http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	params := parameters{}
 	if err := decoder.Decode(&params); err != nil {
-		log.Println(err)
-		utils.RespondWithError(res, errors.New("Something went wrong"), 500)
+		utils.RespondWithServerError(res, err)
 		return
 	}
 
 	if len(params.Body) > 140 {
-		utils.RespondWithError(res, errors.New("Chirp is too long"), 400)
+		utils.RespondWithErrorStatus(res, errors.New("Chirp is too long"), http.StatusBadRequest)
 		return
 	}
 
@@ -43,11 +42,42 @@ func ValidateChirpHandler(res http.ResponseWriter, req *http.Request) {
 	}
 	jsonVal, err := json.Marshal(val)
 	if err != nil {
-		log.Println(err)
-		utils.RespondWithError(res, errors.New("Something went wrong"), 500)
+		utils.RespondWithServerError(res, err)
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	res.WriteHeader(200)
+	res.WriteHeader(http.StatusOK)
 	res.Write(jsonVal)
+}
+
+func CreateUserHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		type reqBody struct {
+			Email string `json:"email"`
+		}
+
+		decoder := json.NewDecoder(req.Body)
+		payload := reqBody{}
+
+		if err := decoder.Decode(&payload); err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		user, err := cfg.DbQueries.CreateUser(req.Context(), payload.Email)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		resJson, err := json.Marshal(user)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusCreated)
+		res.Write(resJson)
+	}
 }
