@@ -3,6 +3,7 @@ package config
 import (
 	"database/sql"
 	"net/http"
+	"os"
 	"sync/atomic"
 
 	"github.com/shadyendless/chirpy/internal/database"
@@ -11,14 +12,16 @@ import (
 type Config struct {
 	DbQueries      *database.Queries
 	FileserverHits atomic.Int32
+	JWTSecret      string
 	Platform       string
 }
 
-func New(db *sql.DB, platform string) *Config {
+func New(db *sql.DB) *Config {
 	return &Config{
 		DbQueries:      database.New(db),
 		FileserverHits: atomic.Int32{},
-		Platform:       platform,
+		JWTSecret:      os.Getenv("SECRET"),
+		Platform:       os.Getenv("PLATFORM"),
 	}
 }
 

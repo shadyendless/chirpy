@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/shadyendless/chirpy/config"
-	"github.com/shadyendless/chirpy/utils"
+	"github.com/shadyendless/chirpy/internal/config"
+	"github.com/shadyendless/chirpy/internal/utils"
 )
 
 func GetMetricsHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {

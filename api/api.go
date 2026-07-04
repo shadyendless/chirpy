@@ -6,12 +6,13 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/shadyendless/chirpy/config"
 	"github.com/shadyendless/chirpy/internal/auth"
+	"github.com/shadyendless/chirpy/internal/config"
 	"github.com/shadyendless/chirpy/internal/database"
-	"github.com/shadyendless/chirpy/utils"
+	"github.com/shadyendless/chirpy/internal/utils"
 )
 
 func HealthHandler(res http.ResponseWriter, req *http.Request) {
@@ -104,8 +105,9 @@ func CreateUserHandler(cfg *config.Config) func(http.ResponseWriter, *http.Reque
 func LoginHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		type reqBody struct {
-			Email    string `json:"email"`
-			Password string `json:"password"`
+			Email            string `json:"email"`
+			Password         string `json:"password"`
+			ExpiresInSeconds int    `json:"expires_in_seconds"`
 		}
 
 		decoder := json.NewDecoder(req.Body)
@@ -133,16 +135,29 @@ func LoginHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
+		duration := time.Second * time.Duration(payload.ExpiresInSeconds)
+		if duration == 0 || duration.Seconds() > time.Hour.Seconds() {
+			duration = time.Hour
+		}
+
+		jwt, err := auth.MakeJWT(user.ID, cfg.JWTSecret, duration)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
 		resJson := struct {
 			ID        string `json:"id"`
 			CreatedAt string `json:"created_at"`
 			UpdatedAt string `json:"updated_at"`
 			Email     string `json:"email"`
+			Token     string `json:"token"`
 		}{
 			ID:        user.ID.String(),
 			CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			UpdatedAt: user.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 			Email:     user.Email,
+			Token:     jwt,
 		}
 
 		resBody, err := json.Marshal(resJson)
@@ -160,8 +175,7 @@ func LoginHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 func CreateChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		type reqBody struct {
-			Body   string    `json:"body"`
-			UserID uuid.UUID `json:"user_id"`
+			Body string `json:"body"`
 		}
 
 		decoder := json.NewDecoder(req.Body)
@@ -172,6 +186,18 @@ func CreateChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Requ
 			return
 		}
 
+		token, err := auth.GetBearerToken(req.Header)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		id, err := auth.ValidateJWT(token, cfg.JWTSecret)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
 		if len(payload.Body) > 140 {
 			utils.RespondWithErrorStatus(res, errors.New("Chirp is too long"), http.StatusBadRequest)
 			return
@@ -179,7 +205,7 @@ func CreateChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Requ
 
 		chirp, err := cfg.DbQueries.CreateChirp(req.Context(), database.CreateChirpParams{
 			Body:   payload.Body,
-			UserID: payload.UserID,
+			UserID: id,
 		})
 		if err != nil {
 			utils.RespondWithServerError(res, err)

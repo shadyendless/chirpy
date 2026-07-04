@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -27,4 +28,39 @@ func TestValidateJWT(t *testing.T) {
 	}
 
 	t.Logf("JWT successfully generates and is validated.\n")
+}
+
+func TestGetBearerToken(t *testing.T) {
+	t.Run("No header returns error", func(t *testing.T) {
+		_, err := GetBearerToken(http.Header{})
+		if err == nil || err.Error() != "No Authorization header received" {
+			t.Fail()
+		}
+	})
+
+	t.Run("Malformed header returns error", func(t *testing.T) {
+		_, err := GetBearerToken(http.Header{
+			"Authorization": []string{" Bearer: Applesauce "},
+		})
+
+		if err == nil || err.Error() != "Authorization header must be in the format: Bearer <token>" {
+			t.Fail()
+		}
+	})
+
+	t.Run("Returns authorization token", func(t *testing.T) {
+		authToken := "TestAuthToken"
+
+		bearer, err := GetBearerToken(http.Header{
+			"Authorization": []string{"Bearer TestAuthToken"},
+		})
+
+		if err != nil {
+			t.Fail()
+		}
+
+		if authToken != bearer {
+			t.Fail()
+		}
+	})
 }

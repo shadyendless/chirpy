@@ -10,7 +10,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/shadyendless/chirpy/admin"
 	"github.com/shadyendless/chirpy/api"
-	"github.com/shadyendless/chirpy/config"
+	"github.com/shadyendless/chirpy/internal/config"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg := config.New(db, os.Getenv("PLATFORM"))
+	cfg := config.New(db)
 
 	serveMux.Handle("/app/", http.StripPrefix("/app", cfg.WithMetrics(http.FileServer(http.Dir(".")))))
 
