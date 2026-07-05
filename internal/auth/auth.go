@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
@@ -19,11 +21,11 @@ func CheckPasswordHash(password, hash string) (bool, error) {
 	return argon2id.ComparePasswordAndHash(password, hash)
 }
 
-func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
+func MakeJWT(userID uuid.UUID, tokenSecret string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.RegisteredClaims{
 		Issuer:    "chirpy-access",
 		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn).UTC()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour).UTC()),
 		Subject:   userID.String(),
 	})
 
@@ -57,4 +59,14 @@ func GetBearerToken(headers http.Header) (string, error) {
 	}
 
 	return strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer ")), nil
+}
+
+func MakeRefreshToken() string {
+	bytes := make([]byte, 32)
+
+	if _, err := rand.Read(bytes); err != nil {
+		panic(err)
+	}
+
+	return hex.EncodeToString(bytes)
 }

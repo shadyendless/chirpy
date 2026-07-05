@@ -105,9 +105,8 @@ func CreateUserHandler(cfg *config.Config) func(http.ResponseWriter, *http.Reque
 func LoginHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		type reqBody struct {
-			Email            string `json:"email"`
-			Password         string `json:"password"`
-			ExpiresInSeconds int    `json:"expires_in_seconds"`
+			Email    string `json:"email"`
+			Password string `json:"password"`
 		}
 
 		decoder := json.NewDecoder(req.Body)
@@ -135,29 +134,33 @@ func LoginHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		duration := time.Second * time.Duration(payload.ExpiresInSeconds)
-		if duration == 0 || duration.Seconds() > time.Hour.Seconds() {
-			duration = time.Hour
-		}
-
-		jwt, err := auth.MakeJWT(user.ID, cfg.JWTSecret, duration)
+		jwt, err := auth.MakeJWT(user.ID, cfg.JWTSecret)
 		if err != nil {
 			utils.RespondWithServerError(res, err)
 			return
 		}
+		token := auth.MakeRefreshToken()
+
+		refreshToken, err := cfg.DbQueries.CreateRefreshToken(req.Context(), database.CreateRefreshTokenParams{
+			Token:     token,
+			UserID:    user.ID,
+			ExpiresAt: time.Now().Add(time.Hour * 24 * 60), // 60 days
+		})
 
 		resJson := struct {
-			ID        string `json:"id"`
-			CreatedAt string `json:"created_at"`
-			UpdatedAt string `json:"updated_at"`
-			Email     string `json:"email"`
-			Token     string `json:"token"`
+			ID           string `json:"id"`
+			CreatedAt    string `json:"created_at"`
+			UpdatedAt    string `json:"updated_at"`
+			Email        string `json:"email"`
+			Token        string `json:"token"`
+			RefreshToken string `json:"refresh_token"`
 		}{
-			ID:        user.ID.String(),
-			CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt: user.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-			Email:     user.Email,
-			Token:     jwt,
+			ID:           user.ID.String(),
+			CreatedAt:    user.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:    user.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			Email:        user.Email,
+			Token:        jwt,
+			RefreshToken: refreshToken.Token,
 		}
 
 		resBody, err := json.Marshal(resJson)
@@ -244,7 +247,7 @@ func GetChirpsHandler(cfg *config.Config) func(http.ResponseWriter, *http.Reques
 	}
 }
 
-func GetChirp(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+func GetChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		chirpID, err := uuid.Parse(req.PathValue("chirpID"))
 		if err != nil {
@@ -272,5 +275,61 @@ func GetChirp(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusOK)
 		res.Write(body)
+	}
+}
+
+func RefreshHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		token, err := auth.GetBearerToken(req.Header)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		refreshToken, err := cfg.DbQueries.GetRefreshToken(req.Context(), token)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, nil, http.StatusUnauthorized)
+			return
+		}
+
+		jwt, err := auth.MakeJWT(refreshToken.UserID, cfg.JWTSecret)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		resJson := struct {
+			Token string `json:"token"`
+		}{
+			Token: jwt,
+		}
+
+		resBody, err := json.Marshal(resJson)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(200)
+		res.Write(resBody)
+	}
+}
+
+func RevokeHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		token, err := auth.GetBearerToken(req.Header)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		err = cfg.DbQueries.RevokeRefreshToken(req.Context(), token)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		res.WriteHeader(http.StatusNoContent)
 	}
 }
