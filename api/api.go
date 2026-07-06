@@ -232,7 +232,9 @@ func CreateChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Requ
 
 func GetChirpsHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
-		chirps, err := cfg.DbQueries.GetChirps(req.Context())
+		authorId := req.URL.Query().Get("author_id")
+
+		chirps, err := cfg.DbQueries.GetChirps(req.Context(), authorId)
 		if err != nil {
 			utils.RespondWithServerError(res, err)
 			return

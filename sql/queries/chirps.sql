@@ -10,7 +10,15 @@ VALUES (
 RETURNING *;
 
 -- name: GetChirps :many
-SELECT * FROM chirps ORDER BY created_at ASC;
+SELECT 
+  * 
+FROM chirps
+WHERE
+  CASE
+    WHEN @author_id::TEXT IS NOT NULL AND @author_id::TEXT <> '' THEN user_id = (@author_id::UUID)
+    ELSE TRUE
+  END
+ORDER BY created_at ASC;
 
 -- name: GetChirp :one
 SELECT * FROM chirps WHERE id = $1;
