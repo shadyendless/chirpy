@@ -18,7 +18,9 @@ WHERE
     WHEN @author_id::TEXT IS NOT NULL AND @author_id::TEXT <> '' THEN user_id = (@author_id::UUID)
     ELSE TRUE
   END
-ORDER BY created_at ASC;
+ORDER BY 
+    CASE WHEN @sort_dir::TEXT IS NOT NULL AND @sort_dir::TEXT = 'desc' THEN created_at END DESC,
+    CASE WHEN @sort_dir::TEXT IS NULL OR @sort_dir::TEXT = 'asc' THEN created_at END ASC;
 
 -- name: GetChirp :one
 SELECT * FROM chirps WHERE id = $1;

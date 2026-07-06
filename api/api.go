@@ -233,8 +233,12 @@ func CreateChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Requ
 func GetChirpsHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		authorId := req.URL.Query().Get("author_id")
+		sort := req.URL.Query().Get("sort")
 
-		chirps, err := cfg.DbQueries.GetChirps(req.Context(), authorId)
+		chirps, err := cfg.DbQueries.GetChirps(req.Context(), database.GetChirpsParams{
+			AuthorID: authorId,
+			SortDir:  sort,
+		})
 		if err != nil {
 			utils.RespondWithServerError(res, err)
 			return

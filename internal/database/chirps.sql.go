@@ -76,11 +76,18 @@ WHERE
     WHEN $1::TEXT IS NOT NULL AND $1::TEXT <> '' THEN user_id = ($1::UUID)
     ELSE TRUE
   END
-ORDER BY created_at ASC
+ORDER BY 
+    CASE WHEN $2::TEXT IS NOT NULL AND $2::TEXT = 'desc' THEN created_at END DESC,
+    CASE WHEN $2::TEXT IS NULL OR $2::TEXT = 'asc' THEN created_at END ASC
 `
 
-func (q *Queries) GetChirps(ctx context.Context, authorID string) ([]Chirp, error) {
-	rows, err := q.db.QueryContext(ctx, getChirps, authorID)
+type GetChirpsParams struct {
+	AuthorID string `json:"author_id"`
+	SortDir  string `json:"sort_dir"`
+}
+
+func (q *Queries) GetChirps(ctx context.Context, arg GetChirpsParams) ([]Chirp, error) {
+	rows, err := q.db.QueryContext(ctx, getChirps, arg.AuthorID, arg.SortDir)
 	if err != nil {
 		return nil, err
 	}
