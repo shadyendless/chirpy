@@ -399,3 +399,43 @@ func UpdateUserHandler(cfg *config.Config) func(http.ResponseWriter, *http.Reque
 		res.Write(resJson)
 	}
 }
+
+func DeleteChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		chirpID, err := uuid.Parse(req.PathValue("chirpID"))
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		token, err := auth.GetBearerToken(req.Header)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		userID, err := auth.ValidateJWT(token, cfg.JWTSecret)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		chirp, err := cfg.DbQueries.GetChirp(req.Context(), chirpID)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusNotFound)
+			return
+		}
+
+		if chirp.UserID != userID {
+			utils.RespondWithErrorStatus(res, nil, http.StatusForbidden)
+			return
+		}
+
+		if err = cfg.DbQueries.DeleteChirp(req.Context(), chirpID); err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		res.WriteHeader(204)
+	}
+}
