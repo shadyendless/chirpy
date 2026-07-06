@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 
@@ -444,6 +445,11 @@ func DeleteChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Requ
 
 func PolkaWebhookHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
+		if apiKey, err := auth.GetAPIKey(req.Header); err != nil || apiKey != os.Getenv("POLKA_KEY") {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
 		body := struct {
 			Event string `json:"event"`
 			Data  struct {

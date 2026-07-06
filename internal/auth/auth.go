@@ -61,6 +61,19 @@ func GetBearerToken(headers http.Header) (string, error) {
 	return strings.TrimSpace(strings.TrimPrefix(authorization, "Bearer ")), nil
 }
 
+func GetAPIKey(headers http.Header) (string, error) {
+	authorization := headers.Get("Authorization")
+	if authorization == "" {
+		return "", errors.New("No Authorization header received")
+	}
+
+	if !strings.HasPrefix(authorization, "ApiKey ") {
+		return "", errors.New("Authorization header must be in the format: ApiKey <token>")
+	}
+
+	return strings.TrimSpace(strings.TrimPrefix(authorization, "ApiKey ")), nil
+}
+
 func MakeRefreshToken() string {
 	bytes := make([]byte, 32)
 
