@@ -333,3 +333,69 @@ func RevokeHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) 
 		res.WriteHeader(http.StatusNoContent)
 	}
 }
+
+func UpdateUserHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		token, err := auth.GetBearerToken(req.Header)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		uuid, err := auth.ValidateJWT(token, cfg.JWTSecret)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		type reqBody struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
+
+		decoder := json.NewDecoder(req.Body)
+		payload := reqBody{}
+
+		if err := decoder.Decode(&payload); err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		_, err = cfg.DbQueries.GetUser(req.Context(), uuid)
+		if err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusUnauthorized)
+			return
+		}
+
+		if payload.Password == "" {
+			utils.RespondWithErrorStatus(res, errors.New("You must provide a password"), http.StatusBadRequest)
+			return
+		}
+
+		hashedPassword, err := auth.HashPassword(payload.Password)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		updatedUser, err := cfg.DbQueries.UpdateUser(req.Context(), database.UpdateUserParams{
+			ID:             uuid,
+			Email:          payload.Email,
+			HashedPassword: hashedPassword,
+		})
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		resJson, err := json.Marshal(updatedUser)
+		if err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		res.Header().Set("Content-Type", "application/json")
+		res.WriteHeader(http.StatusOK)
+		res.Write(resJson)
+	}
+}
