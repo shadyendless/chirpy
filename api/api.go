@@ -154,6 +154,7 @@ func LoginHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 			Email        string `json:"email"`
 			Token        string `json:"token"`
 			RefreshToken string `json:"refresh_token"`
+			IsChirpyRed  bool   `json:"is_chirpy_red"`
 		}{
 			ID:           user.ID.String(),
 			CreatedAt:    user.CreatedAt.Format("2006-01-02T15:04:05Z"),
@@ -161,6 +162,7 @@ func LoginHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 			Email:        user.Email,
 			Token:        jwt,
 			RefreshToken: refreshToken.Token,
+			IsChirpyRed:  user.IsChirpyRed,
 		}
 
 		resBody, err := json.Marshal(resJson)
@@ -437,5 +439,37 @@ func DeleteChirpHandler(cfg *config.Config) func(http.ResponseWriter, *http.Requ
 		}
 
 		res.WriteHeader(204)
+	}
+}
+
+func PolkaWebhookHandler(cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+	return func(res http.ResponseWriter, req *http.Request) {
+		body := struct {
+			Event string `json:"event"`
+			Data  struct {
+				UserID string `json:"user_id"`
+			} `json:"data"`
+		}{}
+
+		decoder := json.NewDecoder(req.Body)
+		if err := decoder.Decode(&body); err != nil {
+			utils.RespondWithServerError(res, err)
+			return
+		}
+
+		if body.Event != "user.upgraded" {
+			utils.RespondWithErrorStatus(res, nil, http.StatusNoContent)
+			return
+		}
+
+		if _, err := cfg.DbQueries.UpdateUserSubscription(req.Context(), database.UpdateUserSubscriptionParams{
+			IsChirpyRed: true,
+			ID:          uuid.MustParse(body.Data.UserID),
+		}); err != nil {
+			utils.RespondWithErrorStatus(res, err, http.StatusNotFound)
+			return
+		}
+
+		res.WriteHeader(http.StatusNoContent)
 	}
 }

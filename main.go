@@ -52,5 +52,7 @@ func main() {
 	serveMux.HandleFunc("POST /api/refresh", api.RefreshHandler(cfg))
 	serveMux.HandleFunc("POST /api/revoke", api.RevokeHandler(cfg))
 
+	serveMux.HandleFunc("POST /api/polka/webhooks", api.PolkaWebhookHandler(cfg))
+
 	server.ListenAndServe()
 }
